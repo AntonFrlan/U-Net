@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 # Model: padding is 0, if set to 1, NN will try to have same image size at the output
 class UNet(nn.Module):
-    def __init__(self, padding = 0):
+    def __init__(self, padding=0):
         super(UNet, self).__init__()
         self.padding = padding
         # Number of in/out channels in up/down branch
@@ -26,7 +26,7 @@ class UNet(nn.Module):
                                                                        _channels[0], 
                                                                        self.padding))      
         
-        self.last_conv = nn.Conv2d(_channels_list[0][1], 1, kernel_size = 1)
+        self.last_conv = nn.Conv2d(_channels_list[0][1], 1, kernel_size=1)
         self.last_activ = nn.Sigmoid()
         
     # Forward pass that puts all together
@@ -52,18 +52,32 @@ class UNet(nn.Module):
         
         return x
 
+    # Get compressed image at the bottom
+    def half_forward(self, x):
+        _down_conv_blocks = []
+
+        # Build left branch
+        for i, conv_block in enumerate(self.downsampling_branch):
+            x = conv_block(x)
+            # If it is last branch, skip it
+            if i != len(self.downsampling_branch) - 1:
+                _down_conv_blocks.append(x)
+                x = F.max_pool2d(x, 2)
+
+        return x
+
 # Convolutional block without downsampling
 class Unet_conv_block(nn.Module):
-    def __init__(self, number_of_input_channels = None, number_of_filters = None, padding = 0):
+    def __init__(self, number_of_input_channels=None, number_of_filters=None, padding=0):
         super(Unet_conv_block, self).__init__()
         assert number_of_input_channels != None
         assert number_of_filters != None
         _conv_block = []
         _conv_block.append(nn.Conv2d(number_of_input_channels, number_of_filters,
-                                    kernel_size = 3, padding = padding))
+                                    kernel_size=3, padding=padding))
         _conv_block.append(nn.ReLU())
         _conv_block.append(nn.Conv2d(number_of_filters, number_of_filters,
-                                    kernel_size = 3, padding = padding))
+                                    kernel_size=3, padding=padding))
         _conv_block.append(nn.ReLU())
         
         self.block = nn.Sequential(*_conv_block)
@@ -74,15 +88,15 @@ class Unet_conv_block(nn.Module):
 
 # Block that handels upsampling and next 2 convolution blocks
 class Unet_upsampling_concat_block(nn.Module):
-    def __init__(self, number_of_input_channels = None, number_of_filters = None, padding = 0):
+    def __init__(self, number_of_input_channels=None, number_of_filters=None, padding=0):
         super(Unet_upsampling_concat_block, self).__init__()
         assert number_of_input_channels != None
         assert number_of_filters != None
         
         self.upsampling = nn.ConvTranspose2d(number_of_input_channels, 
                                              number_of_filters, 
-                                             kernel_size = 2,
-                                             stride = 2)
+                                             kernel_size=2,
+                                             stride=2)
         
         self.conv_block = Unet_conv_block(number_of_input_channels, number_of_filters, padding)
         
